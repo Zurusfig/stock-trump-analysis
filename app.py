@@ -16,7 +16,7 @@ st.set_page_config(
     page_title="Trump-Era Market Backtester",
     page_icon="📈",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",  # collapsed by default on mobile
 )
 
 # ── Ensure project root is on sys.path ───────────────────────────────────────
@@ -33,42 +33,173 @@ from components.trades_tab import render_trades
 from components.comparison_tab import render_comparison
 from components.insights_tab import render_insights
 
-# ── Custom CSS ────────────────────────────────────────────────────────────────
+# ── Custom CSS (desktop + mobile responsive) ─────────────────────────────────
 st.markdown("""
 <style>
-    /* Tighten metric cards */
-    [data-testid="metric-container"] {
-        background: #1A1D27;
-        border: 1px solid #2d3142;
-        border-radius: 8px;
-        padding: 12px 16px;
+/* ── Base / desktop ─────────────────────────────────────────────────────── */
+[data-testid="metric-container"] {
+    background: #1A1D27;
+    border: 1px solid #2d3142;
+    border-radius: 8px;
+    padding: 12px 16px;
+}
+.stTabs [data-baseweb="tab-list"] {
+    gap: 2px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+.stTabs [data-baseweb="tab-list"]::-webkit-scrollbar { display: none; }
+.stTabs [data-baseweb="tab"] {
+    border-radius: 6px 6px 0 0;
+    padding: 8px 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.header-banner {
+    background: linear-gradient(135deg, #1A1D27 0%, #0d1b2a 100%);
+    border: 1px solid #2196F3;
+    border-radius: 10px;
+    padding: 16px 24px;
+    margin-bottom: 16px;
+}
+.stat-ribbon {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 0.82em;
+    color: #aaa;
+}
+.stat-pill {
+    background: #2d3142;
+    border-radius: 20px;
+    padding: 4px 10px;
+    color: #eee;
+    white-space: nowrap;
+}
+
+/* ── Force columns to stack on narrow screens ───────────────────────────── */
+@media (max-width: 640px) {
+    /* Stack every st.columns row */
+    [data-testid="stHorizontalBlock"] {
+        flex-direction: column !important;
+        gap: 8px !important;
     }
-    /* Tab styling */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 4px;
+    [data-testid="column"] {
+        width: 100% !important;
+        flex: 1 1 100% !important;
+        min-width: 100% !important;
+    }
+
+    /* Shrink main content padding */
+    .block-container {
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+        padding-top: 0.5rem !important;
+        max-width: 100% !important;
+    }
+
+    /* Header: smaller on phone */
+    .header-banner h1 { font-size: 1.25em !important; }
+    .header-banner p  { font-size: 0.8em !important; }
+
+    /* Metric cards: bigger value text, full-width */
+    [data-testid="metric-container"] {
+        padding: 10px 12px;
+    }
+    [data-testid="stMetricValue"] {
+        font-size: 1.3em !important;
+    }
+    [data-testid="stMetricLabel"] {
+        font-size: 0.75em !important;
+    }
+
+    /* Touch-friendly buttons */
+    [data-testid="stButton"] button {
+        min-height: 48px !important;
+        font-size: 1em !important;
+    }
+
+    /* Touch-friendly select/multiselect */
+    [data-testid="stSelectbox"] div[data-baseweb="select"],
+    [data-testid="stMultiSelect"] div[data-baseweb="select"] {
+        min-height: 44px !important;
+    }
+
+    /* Sliders: larger thumb */
+    [data-testid="stSlider"] [role="slider"] {
+        width: 22px !important;
+        height: 22px !important;
+    }
+
+    /* Checkboxes: bigger tap targets */
+    [data-testid="stCheckbox"] label {
+        padding: 6px 0 !important;
+        font-size: 0.95em !important;
+    }
+
+    /* Scrollable dataframe container */
+    [data-testid="stDataFrame"] {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Tab labels: smaller font so they fit */
+    .stTabs [data-baseweb="tab"] {
+        padding: 8px 10px !important;
+        font-size: 0.78em !important;
+    }
+
+    /* Reduce chart top margins */
+    .js-plotly-plot .plotly { margin-top: 0 !important; }
+
+    /* Success/info/warning boxes */
+    [data-testid="stAlert"] {
+        font-size: 0.88em !important;
+        padding: 10px 12px !important;
+    }
+
+    /* Expanders */
+    [data-testid="stExpander"] summary {
+        font-size: 0.9em !important;
+        padding: 10px 0 !important;
+    }
+
+    /* Number inputs */
+    [data-testid="stNumberInput"] input {
+        height: 44px !important;
+        font-size: 1em !important;
+    }
+
+    /* Stat ribbon: allow wrap freely */
+    .stat-ribbon { gap: 6px; }
+    .stat-pill   { font-size: 0.75em; padding: 3px 8px; }
+}
+
+/* ── Mid-range tablets (641px – 768px) ──────────────────────────────────── */
+@media (min-width: 641px) and (max-width: 768px) {
+    .block-container {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+        max-width: 100% !important;
+    }
+    /* 4-col rows → 2x2 */
+    [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(4)) {
+        flex-wrap: wrap !important;
+    }
+    [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(4))
+    > [data-testid="column"] {
+        flex: 1 1 48% !important;
+        min-width: 48% !important;
+        max-width: 50% !important;
     }
     .stTabs [data-baseweb="tab"] {
-        border-radius: 6px 6px 0 0;
-        padding: 8px 18px;
-        font-weight: 500;
+        padding: 8px 12px !important;
+        font-size: 0.85em !important;
     }
-    /* Header banner */
-    .header-banner {
-        background: linear-gradient(135deg, #1A1D27 0%, #0d1b2a 100%);
-        border: 1px solid #2196F3;
-        border-radius: 10px;
-        padding: 16px 24px;
-        margin-bottom: 16px;
-    }
-    /* Stat ribbon */
-    .stat-ribbon {
-        display: flex; gap: 24px; flex-wrap: wrap;
-        font-size: 0.85em; color: #aaa;
-    }
-    .stat-pill {
-        background: #2d3142; border-radius: 20px;
-        padding: 4px 12px; color: #eee;
-    }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -182,12 +313,11 @@ results = st.session_state.results
 if not results:
     # Landing state
     st.markdown("### Getting Started")
-    col1, col2, col3 = st.columns(3)
-    with col1:
+    lp1, lp2 = st.columns(2)
+    with lp1:
         st.info("**1. Configure** your parameters in the sidebar — date range, assets, strategies.")
-    with col2:
         st.info("**2. Click ▶ Run Backtest** to fetch data and run all selected strategies.")
-    with col3:
+    with lp2:
         st.info("**3. Explore** results across 6 interactive tabs: overview, charts, risk, trades, comparison, and insights.")
 
     st.markdown("---")
@@ -220,10 +350,10 @@ else:
 # ── Tabs ──────────────────────────────────────────────────────────────────────
 tab_labels = [
     "🏠 Overview",
-    "📊 Performance",
+    "📊 Charts",
     "⚠️ Risk",
-    "🔎 Trade Explorer",
-    "🆚 Asset Comparison",
+    "🔎 Trades",
+    "🆚 Compare",
     "💡 Insights",
 ]
 tabs = st.tabs(tab_labels)

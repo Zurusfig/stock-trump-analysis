@@ -21,39 +21,38 @@ def render_overview(results: list[StrategyResult], ticker: str) -> None:
     best = sorted_r[0]
     worst = sorted_r[-1]
 
-    # ── KPI ribbon ──────────────────────────────────────────────────────────
-    c1, c2, c3, c4 = st.columns(4)
+    # ── KPI grid — 2×2 so it stacks cleanly on mobile ───────────────────────
     bm = best.metrics
     wm = worst.metrics
+    spread = bm["total_return_pct"] - wm["total_return_pct"]
+    trading_days = max((len(r.equity_curve.dropna()) for r in tr), default=0)
 
-    c1.metric(
+    row1_c1, row1_c2 = st.columns(2)
+    row1_c1.metric(
         "🥇 Best Strategy",
         bm["strategy"],
         f"{bm['total_return_pct']:+.2f}%",
     )
-    c2.metric(
+    row1_c2.metric(
         "📉 Worst Strategy",
         wm["strategy"],
         f"{wm['total_return_pct']:+.2f}%",
         delta_color="inverse",
     )
-    spread = bm["total_return_pct"] - wm["total_return_pct"]
-    c3.metric("↔️ Return Spread", f"{spread:.1f}pp")
 
-    trading_days = max(
-        (len(r.equity_curve.dropna()) for r in tr), default=0
-    )
-    c4.metric("📅 Trading Days", f"{trading_days:,}")
+    row2_c1, row2_c2 = st.columns(2)
+    row2_c1.metric("↔️ Return Spread", f"{spread:.1f} pp")
+    row2_c2.metric("📅 Trading Days", f"{trading_days:,}")
 
     st.markdown("---")
 
-    # ── Winner callout ───────────────────────────────────────────────────────
+    # ── Winner callout (broken into two lines so it wraps cleanly) ───────────
     st.success(
-        f"**Winner for {ticker}:** {bm['strategy']} — "
-        f"Total Return: **{bm['total_return_pct']:+.2f}%** | "
-        f"Sharpe: **{bm['sharpe_ratio']:.3f}** | "
-        f"Max DD: **{bm['max_drawdown_pct']:.2f}%** | "
-        f"Trades: **{bm['num_trades']}**"
+        f"**Winner for {ticker}:** {bm['strategy']}  \n"
+        f"Return **{bm['total_return_pct']:+.2f}%** · "
+        f"Sharpe **{bm['sharpe_ratio']:.3f}** · "
+        f"Max DD **{bm['max_drawdown_pct']:.2f}%** · "
+        f"{bm['num_trades']} trades"
     )
 
     # ── Leaderboard table ────────────────────────────────────────────────────

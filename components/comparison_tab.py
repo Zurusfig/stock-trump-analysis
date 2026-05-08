@@ -32,7 +32,7 @@ def render_comparison(results: list[StrategyResult]) -> None:
 
     # ── Side-by-side cumulative returns ───────────────────────────────────────
     st.subheader(f"Cumulative Returns — {selected_strategy}")
-    cols = st.columns(min(len(tickers), 3))
+    cols = st.columns(min(len(tickers), 2))  # max 2 per row — stacks on mobile
     for i, ticker in enumerate(tickers):
         result = next(
             (r for r in results if r.ticker == ticker and r.name == selected_strategy), None
@@ -80,7 +80,7 @@ def render_comparison(results: list[StrategyResult]) -> None:
         xaxis_title="Date", yaxis_title="Return (%)",
         margin=dict(l=0, r=0, t=40, b=0), height=380,
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config={"responsive": True, "displayModeBar": False, "scrollZoom": False})
 
     # ── All-strategy return heatmap ───────────────────────────────────────────
     st.subheader("Total Return (%) — Strategy × Asset")
@@ -112,7 +112,7 @@ def render_comparison(results: list[StrategyResult]) -> None:
         margin=dict(l=0, r=0, t=20, b=0),
         height=max(300, len(strat_names) * 50),
     )
-    st.plotly_chart(fig_heat, use_container_width=True)
+    st.plotly_chart(fig_heat, use_container_width=True, config={"responsive": True, "displayModeBar": False, "scrollZoom": False})
 
     # ── Equity curve correlation ───────────────────────────────────────────────
     st.subheader("Equity Curve Correlation (Daily Returns)")
@@ -142,14 +142,14 @@ def render_comparison(results: list[StrategyResult]) -> None:
             template="plotly_dark",
             margin=dict(l=0, r=0, t=20, b=0), height=300,
         )
-        st.plotly_chart(fig_corr, use_container_width=True)
+        st.plotly_chart(fig_corr, use_container_width=True, config={"responsive": True, "displayModeBar": False, "scrollZoom": False})
 
     _best_per_ticker(results, tickers)
 
 
 def _best_per_ticker(results: list[StrategyResult], tickers: list[str]) -> None:
     st.subheader("Best Strategy per Asset")
-    cols = st.columns(len(tickers))
+    cols = st.columns(min(len(tickers), 2))
     for i, ticker in enumerate(tickers):
         tr = [r for r in results if r.ticker == ticker and r.metrics]
         with cols[i]:

@@ -46,7 +46,7 @@ def render_performance(results: list[StrategyResult], ticker: str) -> None:
         margin=dict(l=0, r=0, t=40, b=0),
         height=420,
     )
-    st.plotly_chart(fig_cum, use_container_width=True)
+    st.plotly_chart(fig_cum, use_container_width=True, config={"responsive": True, "displayModeBar": False, "scrollZoom": False})
 
     # ── Drawdown ──────────────────────────────────────────────────────────────
     st.subheader("Drawdown Over Time")
@@ -72,7 +72,7 @@ def render_performance(results: list[StrategyResult], ticker: str) -> None:
         xaxis_title="Date", yaxis_title="Drawdown (%)",
         margin=dict(l=0, r=0, t=40, b=0), height=380,
     )
-    st.plotly_chart(fig_dd, use_container_width=True)
+    st.plotly_chart(fig_dd, use_container_width=True, config={"responsive": True, "displayModeBar": False, "scrollZoom": False})
 
     # ── Daily return distributions ────────────────────────────────────────────
     st.subheader("Daily Return Distribution")
@@ -95,4 +95,4 @@ def render_performance(results: list[StrategyResult], ticker: str) -> None:
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
         margin=dict(l=0, r=0, t=40, b=0), height=350,
     )
-    st.plotly_chart(fig_hist, use_container_width=True)
+    st.plotly_chart(fig_hist, use_container_width=True, config={"responsive": True, "displayModeBar": False, "scrollZoom": False})

@@ -34,21 +34,22 @@ def render_trades(results: list[StrategyResult], ticker: str) -> None:
     df["hold_days"] = (df["exit_date"] - df["entry_date"]).dt.days
     df["result"] = df["pnl"].apply(lambda x: "Win" if x > 0 else "Loss")
 
-    # ── Summary KPIs ─────────────────────────────────────────────────────────
+    # ── Summary KPIs — 2×2 grid for mobile ───────────────────────────────────
     wins = (df["pnl"] > 0).sum()
     losses = (df["pnl"] <= 0).sum()
     avg_pnl = df["pnl"].mean()
     total_pnl = df["pnl"].sum()
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total Trades", len(df))
-    c2.metric("Win Rate", f"{wins / len(df) * 100:.1f}%", f"{wins}W / {losses}L")
-    c3.metric("Avg P&L / Trade", f"${avg_pnl:+,.2f}")
-    c4.metric("Total P&L", f"${total_pnl:+,.2f}")
+    km1, km2 = st.columns(2)
+    km1.metric("Total Trades", len(df))
+    km2.metric("Win Rate", f"{wins / len(df) * 100:.1f}%", f"{wins}W / {losses}L")
+    km3, km4 = st.columns(2)
+    km3.metric("Avg P&L / Trade", f"${avg_pnl:+,.2f}")
+    km4.metric("Total P&L", f"${total_pnl:+,.2f}")
 
     # ── Filters ──────────────────────────────────────────────────────────────
     with st.expander("🔍 Filter Trades", expanded=False):
-        fcol1, fcol2, fcol3 = st.columns(3)
+        fcol1, fcol2, fcol3 = st.columns([1, 1, 1])
         with fcol1:
             result_filter = st.multiselect("Result", ["Win", "Loss"], default=["Win", "Loss"],
                                             key=f"res_filter_{ticker}")
@@ -97,30 +98,28 @@ def render_trades(results: list[StrategyResult], ticker: str) -> None:
     )
     st.dataframe(styled, use_container_width=True, hide_index=True)
 
-    col1, col2 = st.columns([2, 1])
+    # ── P&L bar chart (full width) ────────────────────────────────────────────
+    st.subheader("P&L per Trade")
+    colors = ["#2ecc71" if v >= 0 else "#e74c3c" for v in filtered["pnl"]]
+    fig_pnl = go.Figure(go.Bar(
+        x=filtered["exit_date"].dt.strftime("%Y-%m-%d"),
+        y=filtered["pnl"],
+        marker_color=colors,
+        hovertemplate="Date: %{x}<br>P&L: $%{y:+,.2f}<extra></extra>",
+    ))
+    fig_pnl.add_hline(y=0, line_color="gray", opacity=0.5)
+    fig_pnl.update_layout(
+        template="plotly_dark",
+        xaxis_title="Exit Date", yaxis_title="P&L ($)",
+        xaxis_tickangle=-45,
+        margin=dict(l=0, r=0, t=30, b=80), height=300,
+    )
+    st.plotly_chart(fig_pnl, use_container_width=True, config={"responsive": True, "displayModeBar": False, "scrollZoom": False})
 
-    # ── P&L bar chart ─────────────────────────────────────────────────────────
-    with col1:
-        st.subheader("P&L per Trade")
-        colors = ["#2ecc71" if v >= 0 else "#e74c3c" for v in filtered["pnl"]]
-        fig_pnl = go.Figure(go.Bar(
-            x=filtered["exit_date"].dt.strftime("%Y-%m-%d"),
-            y=filtered["pnl"],
-            marker_color=colors,
-            hovertemplate="Date: %{x}<br>P&L: $%{y:+,.2f}<extra></extra>",
-        ))
-        fig_pnl.add_hline(y=0, line_color="gray", opacity=0.5)
-        fig_pnl.update_layout(
-            template="plotly_dark",
-            xaxis_title="Exit Date", yaxis_title="P&L ($)",
-            xaxis_tickangle=-45,
-            margin=dict(l=0, r=0, t=30, b=80), height=320,
-        )
-        st.plotly_chart(fig_pnl, use_container_width=True)
-
-    # ── Win/loss pie ──────────────────────────────────────────────────────────
-    with col2:
-        st.subheader("Win / Loss Split")
+    # ── Win/loss pie + stats side-by-side (stack on mobile via CSS) ───────────
+    pcol1, pcol2 = st.columns([1, 1])
+    with pcol1:
+        st.subheader("Win / Loss")
         win_count = (filtered["pnl"] > 0).sum()
         loss_count = (filtered["pnl"] <= 0).sum()
         fig_pie = go.Figure(go.Pie(
@@ -132,11 +131,23 @@ def render_trades(results: list[StrategyResult], ticker: str) -> None:
         ))
         fig_pie.update_layout(
             template="plotly_dark",
-            margin=dict(l=0, r=0, t=30, b=0), height=320,
+            margin=dict(l=0, r=0, t=10, b=0), height=280,
             showlegend=True,
-            legend=dict(orientation="h", y=-0.1),
+            legend=dict(orientation="h", y=-0.15),
         )
-        st.plotly_chart(fig_pie, use_container_width=True)
+        st.plotly_chart(fig_pie, use_container_width=True, config={"responsive": True, "displayModeBar": False, "scrollZoom": False})
+
+    with pcol2:
+        st.subheader("Trade Stats")
+        st.markdown(f"""
+| Metric | Value |
+|--------|-------|
+| Avg win | ${filtered.loc[filtered['pnl']>0,'pnl'].mean():+,.2f} |
+| Avg loss | ${filtered.loc[filtered['pnl']<=0,'pnl'].mean():+,.2f} |
+| Best trade | ${filtered['pnl'].max():+,.2f} |
+| Worst trade | ${filtered['pnl'].min():+,.2f} |
+| Avg hold | {filtered['hold_days'].mean():.1f} days |
+""")
 
     # ── Monthly P&L heatmap ───────────────────────────────────────────────────
     if len(filtered) >= 4:
@@ -163,4 +174,4 @@ def render_trades(results: list[StrategyResult], ticker: str) -> None:
             xaxis_title="Month", yaxis_title="Year",
             margin=dict(l=0, r=0, t=30, b=0), height=250,
         )
-        st.plotly_chart(fig_heat, use_container_width=True)
+        st.plotly_chart(fig_heat, use_container_width=True, config={"responsive": True, "displayModeBar": False, "scrollZoom": False})
