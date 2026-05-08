@@ -88,7 +88,7 @@ def render_overview(results: list[StrategyResult], ticker: str) -> None:
 
     styled = (
         df.style
-        .applymap(_color_return, subset=["Return %", "Ann. Return %", "P&L $"])
+        .map(_color_return, subset=["Return %", "Ann. Return %", "P&L $"])
         .format({
             "Invested $": "${:,.0f}",
             "Final Value $": "${:,.0f}",

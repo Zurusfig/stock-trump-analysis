@@ -87,8 +87,8 @@ def render_trades(results: list[StrategyResult], ticker: str) -> None:
 
     styled = (
         display_df.style
-        .applymap(_color_result, subset=["Result"])
-        .applymap(_color_pnl, subset=["P&L $", "Return %"])
+        .map(_color_result, subset=["Result"])
+        .map(_color_pnl, subset=["P&L $", "Return %"])
         .format({
             "Entry $": "${:.4f}", "Exit $": "${:.4f}",
             "Shares": "{:.4f}",
