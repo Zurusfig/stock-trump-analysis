@@ -309,13 +309,34 @@ class BuyHoldStrategy(Strategy):
 class DCAStrategy(Strategy):
     name = "Weekly DCA"
 
+    def __init__(self, df: pd.DataFrame, ticker: str,
+                 capital_per_trade: float = 1000.0,
+                 transaction_cost: float = 0.001,
+                 frequency: str = "weekly"):
+        super().__init__(df, ticker, capital_per_trade, transaction_cost)
+        self.frequency = frequency  # "weekly", "biweekly", "monthly"
+        freq_label = {"weekly": "Weekly", "biweekly": "Biweekly", "monthly": "Monthly"}.get(frequency, "Weekly")
+        self.name = f"{freq_label} DCA"
+
     def generate_signals(self) -> pd.DataFrame:
         df = self.df.copy()
         df["weekday"] = df.index.dayofweek
-        mondays = df[df["weekday"] == 0].copy()
-        mondays["price"] = mondays["Open"]
-        mondays["signal"] = "buy"
-        return mondays[["price", "signal"]]
+
+        if self.frequency == "monthly":
+            df["year_month"] = df.index.to_period("M")
+            first_days = df.groupby("year_month").apply(lambda g: g.index[0]).values
+            mask = df.index.isin(first_days)
+        elif self.frequency == "biweekly":
+            mondays = df[df["weekday"] == 0].copy()
+            # Every other Monday
+            mask = df.index.isin(mondays.index[::2])
+        else:  # weekly
+            mask = df["weekday"] == 0
+
+        signals = df[mask].copy()
+        signals["price"] = signals["Open"]
+        signals["signal"] = "buy"
+        return signals[["price", "signal"]]
 
     def execute_trades(self, signals: pd.DataFrame) -> tuple[list[Trade], pd.Series, float]:
         trades: list[Trade] = []
@@ -388,23 +409,32 @@ def _position_equity_curve(df: pd.DataFrame, trades: list[Trade]) -> pd.Series:
 class MACrossoverStrategy(Strategy):
     name = "MA Crossover (50/200)"
 
+    def __init__(self, df: pd.DataFrame, ticker: str,
+                 capital_per_trade: float = 1000.0,
+                 transaction_cost: float = 0.001,
+                 short_window: int = 50, long_window: int = 200):
+        super().__init__(df, ticker, capital_per_trade, transaction_cost)
+        self.short_window = short_window
+        self.long_window = long_window
+        self.name = f"MA Crossover ({short_window}/{long_window})"
+
     def generate_signals(self) -> pd.DataFrame:
         df = self.df.copy()
-        df["ma50"] = df["Close"].rolling(50).mean()
-        df["ma200"] = df["Close"].rolling(200).mean()
-        df["prev_ma50"] = df["ma50"].shift(1)
-        df["prev_ma200"] = df["ma200"].shift(1)
+        df["ma_short"] = df["Close"].rolling(self.short_window).mean()
+        df["ma_long"] = df["Close"].rolling(self.long_window).mean()
+        df["prev_short"] = df["ma_short"].shift(1)
+        df["prev_long"] = df["ma_long"].shift(1)
 
-        # Golden cross: ma50 crosses above ma200
-        df["golden"] = (df["ma50"] > df["ma200"]) & (df["prev_ma50"] <= df["prev_ma200"])
-        # Death cross: ma50 crosses below ma200
-        df["death"] = (df["ma50"] < df["ma200"]) & (df["prev_ma50"] >= df["prev_ma200"])
+        # Golden cross: short MA crosses above long MA
+        df["golden"] = (df["ma_short"] > df["ma_long"]) & (df["prev_short"] <= df["prev_long"])
+        # Death cross: short MA crosses below long MA
+        df["death"] = (df["ma_short"] < df["ma_long"]) & (df["prev_short"] >= df["prev_long"])
 
         df["signal"] = None
         df.loc[df["golden"], "signal"] = "buy"
         df.loc[df["death"], "signal"] = "sell"
         df["price"] = df["Close"]
-        return df[["price", "signal", "ma50", "ma200"]]
+        return df[["price", "signal", "ma_short", "ma_long"]]
 
     def execute_trades(self, signals: pd.DataFrame) -> tuple[list[Trade], pd.Series, float]:
         trades: list[Trade] = []
@@ -453,28 +483,39 @@ class MACrossoverStrategy(Strategy):
 class RSIStrategy(Strategy):
     name = "RSI Mean Reversion"
 
+    def __init__(self, df: pd.DataFrame, ticker: str,
+                 capital_per_trade: float = 1000.0,
+                 transaction_cost: float = 0.001,
+                 oversold: int = 30, overbought: int = 70, period: int = 14):
+        super().__init__(df, ticker, capital_per_trade, transaction_cost)
+        self.oversold = oversold
+        self.overbought = overbought
+        self.period = period
+        self.name = f"RSI ({oversold}/{overbought})"
+
     def generate_signals(self) -> pd.DataFrame:
         df = self.df.copy()
+        com = self.period - 1
 
         if TA_AVAILABLE and TA_BACKEND == "pandas_ta":
-            df["rsi"] = ta.rsi(df["Close"], length=14)
+            df["rsi"] = ta.rsi(df["Close"], length=self.period)
         elif TA_AVAILABLE and TA_BACKEND == "ta":
             import ta as ta_lib  # type: ignore
-            rsi_indicator = ta_lib.momentum.RSIIndicator(close=df["Close"], window=14)
+            rsi_indicator = ta_lib.momentum.RSIIndicator(close=df["Close"], window=self.period)
             df["rsi"] = rsi_indicator.rsi()
         else:
             # Pure-pandas Wilder RSI (no external dependency)
             delta = df["Close"].diff()
             gain = delta.clip(lower=0)
             loss = (-delta.clip(upper=0))
-            avg_gain = gain.ewm(com=13, min_periods=14).mean()
-            avg_loss = loss.ewm(com=13, min_periods=14).mean()
+            avg_gain = gain.ewm(com=com, min_periods=self.period).mean()
+            avg_loss = loss.ewm(com=com, min_periods=self.period).mean()
             rs = avg_gain / avg_loss.replace(0, np.nan)
             df["rsi"] = 100 - 100 / (1 + rs)
 
         df["signal"] = None
-        df.loc[df["rsi"] < 30, "signal"] = "buy"
-        df.loc[df["rsi"] > 70, "signal"] = "sell"
+        df.loc[df["rsi"] < self.oversold, "signal"] = "buy"
+        df.loc[df["rsi"] > self.overbought, "signal"] = "sell"
         df["price"] = df["Close"]
         return df[["price", "signal", "rsi"]]
 
@@ -586,23 +627,37 @@ STRATEGY_MAP: dict[str, type[Strategy]] = {
 class Backtester:
     def __init__(self, tickers: list[str], start_date: str, end_date: str,
                  capital: float = 1000.0, transaction_cost: float = 0.001,
-                 strategies: Optional[list[str]] = None):
+                 strategies: Optional[list[str]] = None,
+                 strategy_params: Optional[dict] = None):
         self.tickers = tickers
         self.start_date = start_date
         self.end_date = end_date
         self.capital = capital
         self.transaction_cost = transaction_cost
         self.strategy_keys = strategies or list(STRATEGY_MAP.keys())
+        self.strategy_params = strategy_params or {}
         self.results: list[StrategyResult] = []
 
-    def run(self) -> list[StrategyResult]:
+    def _build_strategy(self, key: str, df: pd.DataFrame, ticker: str) -> Strategy:
+        """Instantiate a strategy with any user-provided extra params."""
+        cls = STRATEGY_MAP[key]
+        extra = self.strategy_params.get(key, {})
+        return cls(df, ticker, self.capital, self.transaction_cost, **extra)
+
+    def run(self, progress_callback=None) -> list[StrategyResult]:
         self.results = []
+        total_steps = len(self.tickers) * len(self.strategy_keys)
+        step = 0
+
         for ticker in self.tickers:
             print(f"\n  Fetching data for {ticker}...")
             try:
                 df = fetch_data(ticker, self.start_date, self.end_date)
             except ValueError as e:
                 print(f"  [WARN] {e}")
+                step += len(self.strategy_keys)
+                if progress_callback:
+                    progress_callback(step / total_steps, f"Skipped {ticker}: no data")
                 continue
 
             print(f"  {ticker}: {len(df)} trading days ({df.index[0].date()} → {df.index[-1].date()})")
@@ -611,16 +666,23 @@ class Backtester:
                 cls = STRATEGY_MAP.get(key)
                 if cls is None:
                     print(f"  [WARN] Unknown strategy '{key}', skipping.")
+                    step += 1
                     continue
 
-                strategy = cls(df, ticker, self.capital, self.transaction_cost)
-                print(f"    Running {strategy.name}...")
                 try:
+                    strategy = self._build_strategy(key, df, ticker)
+                    print(f"    Running {strategy.name}...")
+                    if progress_callback:
+                        progress_callback(step / total_steps, f"{ticker} — {strategy.name}")
                     result = strategy.calculate_metrics()
                     self.results.append(result)
                 except Exception as exc:
-                    print(f"    [ERROR] {strategy.name} failed: {exc}")
+                    print(f"    [ERROR] {key} failed: {exc}")
+                finally:
+                    step += 1
 
+        if progress_callback:
+            progress_callback(1.0, "Done")
         return self.results
 
     def print_summary(self) -> None:

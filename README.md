@@ -1,6 +1,6 @@
-# Weekend Trading Backtester
+# Trump-Era Market Backtester
 
-A modular Python backtesting framework that analyses a **"Buy Friday, Sell Monday"** strategy on the S&P 500 (`^GSPC`) and Gold (`GLD`) during Trump's second term (Jan 20, 2025 – present), benchmarked against 5 common investment strategies.
+A modular Python backtesting framework and **interactive Streamlit dashboard** that analyses a **"Buy Friday, Sell Monday"** strategy on the S&P 500 (`^GSPC`) and Gold (`GLD`) during Trump's second term (Jan 20, 2025 – present), benchmarked against 5 common investment strategies.
 
 ## Quick Start
 
@@ -8,10 +8,10 @@ A modular Python backtesting framework that analyses a **"Buy Friday, Sell Monda
 # Install dependencies
 pip install -r requirements.txt
 
-# Run with defaults (^GSPC and GLD, $1000/trade, 0.1% transaction cost)
-python backtest.py
+# Launch the interactive dashboard (recommended)
+streamlit run app.py
 
-# Full example
+# Or run the CLI tool directly
 python backtest.py --tickers ^GSPC GLD --transaction-cost 0.001
 
 # Custom date range and capital
@@ -72,6 +72,39 @@ After running, you'll find:
 - Sortino Ratio (annualised)
 - Number of trades
 - Total transaction costs ($)
+
+## Dashboard
+
+The Streamlit dashboard (`app.py`) provides 6 interactive tabs:
+
+| Tab | Contents |
+|-----|----------|
+| **Overview** | KPI cards (best/worst strategy, spread), ranked leaderboard table |
+| **Performance** | Cumulative returns overlay, drawdown chart, daily return histograms |
+| **Risk Analysis** | Sharpe vs Return scatter, annualised volatility bar, Sharpe/Sortino comparison |
+| **Trade Explorer** | Filterable trade log, P&L bar chart, win/loss pie, monthly P&L heatmap |
+| **Asset Comparison** | Cross-asset return heatmap, equity correlation, best strategy per asset |
+| **Insights** | Auto-generated narrative insights + download buttons (CSV, ZIP, JSON, MD) |
+
+### Sidebar Controls
+
+- **Date range** — start/end date pickers
+- **Assets** — multi-select from `^GSPC`, `GLD`, `QQQ`, `BTC-USD`, `TLT`, `SPY`, `IWM`, `DIA`
+- **Strategies** — toggle each strategy on/off
+- **Capital** — per-trade amount and transaction cost slider
+- **Advanced params** (collapsible):
+  - RSI: oversold/overbought thresholds, period
+  - MA Crossover: short/long window
+  - DCA: frequency (weekly / biweekly / monthly)
+
+### Deployment to Streamlit Cloud
+
+1. Push this repo to GitHub
+2. Visit [share.streamlit.io](https://share.streamlit.io) and connect your repo
+3. Set **Main file path** to `app.py`
+4. Click **Deploy** — free hosting, no config needed
+
+---
 
 ## Adding a New Strategy
 
